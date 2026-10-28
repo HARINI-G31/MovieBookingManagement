@@ -24,4 +24,17 @@ public class BookingService
     public Task<List<Booking>> GetAllBookingsAsync() => _bookings.GetAllAsync();
 
     public Task<Booking?> GetBookingAsync(int bookingId) => _bookings.GetByIdAsync(bookingId);
+
+    public Task CancelBookingAsync(int bookingId)
+    {
+        if (bookingId <= 0)
+            throw new ArgumentException("Enter a valid booking ID.");
+        return _bookings.CancelAsync(bookingId);
+    }
+
+    public Task<(int Booked, int Cancelled, decimal Revenue)> GetSummaryAsync()
+        => _bookings.GetSummaryAsync();
+
+    public Task<List<(string Title, int Booked, int Cancelled, decimal Revenue)>> GetMovieWiseAsync()
+        => _bookings.GetMovieWiseAsync();
 }

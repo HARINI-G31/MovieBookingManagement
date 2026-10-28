@@ -134,6 +134,101 @@ public class BookingRepository
         return await reader.ReadAsync() ? Map(reader) : null;
     }
 
+    /// <summary>
+    /// Cancels a booking in one transaction: lock the row, reject if already cancelled,
+    /// flip the status, COMMIT. The filtered unique index only covers 'Booked' rows, so
+    /// the seat becomes available again immediately.
+    /// </summary>
+    public async Task CancelAsync(int bookingId)
+    {
+        var (connection, transaction) = await DbConnection.BeginAsync();
+        await using (connection)
+        await using (transaction)
+        {
+            try
+            {
+                string status;
+                const string readSql = """
+                    SELECT BookingStatus FROM Bookings WITH (UPDLOCK, ROWLOCK)
+                    WHERE BookingId = @BookingId;
+                    """;
+                await using (SqlCommand command = new(readSql, connection, transaction))
+                {
+                    command.Parameters.Add("@BookingId", SqlDbType.Int).Value = bookingId;
+                    object? result = await command.ExecuteScalarAsync();
+                    if (result is null)
+                        throw new InvalidOperationException($"Booking {bookingId} was not found.");
+                    status = (string)result;
+                }
+
+                // Rule 6: a cancelled booking cannot be cancelled again.
+                if (status == "Cancelled")
+                    throw new InvalidOperationException("This booking is already cancelled.");
+
+                const string updateSql = """
+                    UPDATE Bookings SET BookingStatus = 'Cancelled'
+                    WHERE BookingId = @BookingId;
+                    """;
+                await using (SqlCommand command = new(updateSql, connection, transaction))
+                {
+                    command.Parameters.Add("@BookingId", SqlDbType.Int).Value = bookingId;
+                    await command.ExecuteNonQueryAsync();
+                }
+
+                await transaction.CommitAsync();   // commit the cancellation
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+    }
+
+    // ---------- Reports ----------
+
+    public async Task<(int Booked, int Cancelled, decimal Revenue)> GetSummaryAsync()
+    {
+        const string sql = """
+            SELECT
+                COALESCE(SUM(CASE WHEN BookingStatus = 'Booked'    THEN 1 ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN BookingStatus = 'Cancelled' THEN 1 ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN BookingStatus = 'Booked'    THEN AmountPaid ELSE 0 END), 0)
+            FROM Bookings;
+            """;
+
+        await using SqlConnection connection = DbConnection.Create();
+        await using SqlCommand command = new(sql, connection);
+        await connection.OpenAsync();
+        await using SqlDataReader reader = await command.ExecuteReaderAsync();
+        await reader.ReadAsync();
+        return (reader.GetInt32(0), reader.GetInt32(1), reader.GetDecimal(2));
+    }
+
+    public async Task<List<(string Title, int Booked, int Cancelled, decimal Revenue)>> GetMovieWiseAsync()
+    {
+        const string sql = """
+            SELECT m.Title,
+                   COALESCE(SUM(CASE WHEN b.BookingStatus = 'Booked'    THEN 1 ELSE 0 END), 0) AS Booked,
+                   COALESCE(SUM(CASE WHEN b.BookingStatus = 'Cancelled' THEN 1 ELSE 0 END), 0) AS Cancelled,
+                   COALESCE(SUM(CASE WHEN b.BookingStatus = 'Booked'    THEN b.AmountPaid ELSE 0 END), 0) AS Revenue
+            FROM Movies AS m
+            LEFT JOIN Shows    AS s ON s.MovieId = m.MovieId
+            LEFT JOIN Bookings AS b ON b.ShowId  = s.ShowId
+            GROUP BY m.MovieId, m.Title
+            ORDER BY Revenue DESC, m.Title;
+            """;
+
+        List<(string, int, int, decimal)> rows = [];
+        await using SqlConnection connection = DbConnection.Create();
+        await using SqlCommand command = new(sql, connection);
+        await connection.OpenAsync();
+        await using SqlDataReader reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+            rows.Add((reader.GetString(0), reader.GetInt32(1), reader.GetInt32(2), reader.GetDecimal(3)));
+        return rows;
+    }
+
     private static Booking Map(SqlDataReader reader) => new()
     {
         BookingId     = reader.GetInt32(reader.GetOrdinal("BookingId")),
