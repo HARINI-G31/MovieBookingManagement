@@ -162,3 +162,44 @@ Learning outcomes:
 - Mapping C# models to SQL Server tables
 
 Status: Completed
+
+## Booking Management - ADO.NET
+
+### Implemented Modules
+- Booking Model
+- Database Connection
+- Booking Repository
+- Booking Service
+- Audit Service
+- Booking Console Menu
+
+### Features
+1. Book a ticket for an existing show
+2. Check seat availability
+3. Prevent duplicate active seat bookings
+4. Display all bookings
+5. Search bookings by ID
+6. Cancel existing bookings
+7. Record booking and cancellation audit logs
+
+### ADO.NET Concepts
+- SqlConnection
+- SqlCommand
+- SqlDataReader
+- ExecuteScalarAsync
+- ExecuteReaderAsync
+- ExecuteNonQueryAsync
+- SQL Parameters
+- SQL Transactions
+- Commit and Rollback
+- SQL JOIN
+
+### Database Tables
+- Movies (existing)
+- Shows (existing)
+- Bookings
+- AuditLogs
+
+### Next Stage
+Movie and Show Management
+```
