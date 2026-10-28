@@ -1,3 +1,4 @@
+
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 
@@ -21,15 +22,14 @@ public static class DbConnection
 
     public static SqlConnection Create() => new(ConnectionString);
 
-    /// <summary>
-    /// Opens a connection and starts a transaction. Every write operation in the
-    /// repositories uses this so each step is committed (or rolled back) as a unit.
-    /// </summary>
     public static async Task<(SqlConnection Connection, SqlTransaction Transaction)> BeginAsync()
     {
         SqlConnection connection = Create();
         await connection.OpenAsync();
-        SqlTransaction transaction = (SqlTransaction)await connection.BeginTransactionAsync();
+
+        SqlTransaction transaction =
+            (SqlTransaction)await connection.BeginTransactionAsync();
+
         return (connection, transaction);
     }
 }

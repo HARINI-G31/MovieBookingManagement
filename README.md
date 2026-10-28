@@ -138,3 +138,27 @@ Keep the same database and services; replace the repository implementations:
 - Add a Customers table
 - Show a seat map when booking
 - Search movies by title or genre
+
+### Booking Model
+
+File: `Models/Booking.cs`
+
+The Booking model represents one reserved seat for a movie show.
+
+Properties:
+- BookingId: Unique booking identifier
+- ShowId: Foreign key referencing Shows
+- CustomerName: Name of the customer
+- SeatNumber: Selected seat
+- BookingDate: Date and time of booking
+- BookingStatus: Booked or Cancelled
+- AmountPaid: Ticket price
+- MovieTitle: Optional property used for display
+
+Learning outcomes:
+- C# classes and properties
+- Nullable reference types
+- Default property values
+- Mapping C# models to SQL Server tables
+
+Status: Completed
